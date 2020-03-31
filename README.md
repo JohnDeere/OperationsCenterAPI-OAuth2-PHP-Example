@@ -1,2 +1,1 @@
-# MyJohnDeereAPI-OAuth2-PHP-Example
-Example PHP Application for OAuth2
+# oauth2-example-python
