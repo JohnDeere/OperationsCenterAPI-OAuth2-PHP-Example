@@ -6,7 +6,7 @@ For PHP 7.2+ you need : Download VC15 2017 vc_redist.x86.exe
 
 Upgrade PHP version to 7.2.7 from Uwamp
 
-Download and insall composer for depedency management - https://getcomposer.org/doc/00-intro.md
+Download and install composer for dependency management - https://getcomposer.org/doc/00-intro.md
 
 This is a Slim Framework 4 Skeleton Application and been created using following command. Learn more about Slimframework from http://www.slimframework.com/docs/v4/
 
