@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use App\Domain\User\OAuth2Settings;
+use App\Domain\Oauth2\OAuth2Settings;
 use GuzzleHttp\Client;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
