@@ -36,8 +36,9 @@ return function (App $app) {
             "state" => $settings['state']
         ];
         $redirect_url = $authorization_endpoint . "?" . http_build_query($params);
-        header("Location: " . $redirect_url);
-        exit();
+        return $response
+                ->withHeader('Location', $redirect_url)
+                ->withStatus(302);
     });
 
     //process_callback
