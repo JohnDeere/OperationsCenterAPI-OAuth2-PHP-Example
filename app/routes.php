@@ -93,7 +93,7 @@ return function (App $app) {
         $token = filter_var($parsedBody['token'], FILTER_SANITIZE_STRING);
 
         $body = apiGet($token, $url);
-        $body = json_encode(json_decode($body), JSON_PRETTY_PRINT);
+        $body = json_encode(json_decode($body), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
         $settings['accessToken'] = $token;
         $settings['apiResponse'] = $body;
