@@ -18,8 +18,7 @@ return function (App $app) {
             $_SESSION['settings'] = (new OAuth2Settings())->getSettings();
         }
 
-        $response = $container->render($response, 'main.phtml', ["settings" => $_SESSION['settings']]);
-        return $response;
+        return $container->render($response, 'main.phtml', ["settings" => $_SESSION['settings']]);
     });
 
     //start_oidc
@@ -80,8 +79,7 @@ return function (App $app) {
         $settings = callAuthenticationWith($settings, $payload);
 
         $_SESSION['settings'] = $settings;
-        $response = $container->render($response, 'main.phtml', ["settings" => $settings]);
-        return $response;
+        return $container->render($response, 'main.phtml', ["settings" => $settings]);
     });
 
     //call-api
@@ -100,8 +98,7 @@ return function (App $app) {
         $settings['apiResponse'] = $body;
         $_SESSION['settings'] = $settings;
 
-        $response = $container->render($response, 'main.phtml', ["settings" => $settings]);
-        return $response;
+        return $container->render($response, 'main.phtml', ["settings" => $settings]);
     });
 
     function apiGet($token, $resourceUrl)
@@ -140,10 +137,10 @@ return function (App $app) {
         return $settings;
     }
 
-    function getAccessTokenDetails($jwt_access_token)
+    function getAccessTokenDetails($jwtAccessToken)
     {
         $separator = '.';
-        list($header, $payload, $signature) = explode($separator, $jwt_access_token);
+        list($header, $payload, $signature) = explode($separator, $jwtAccessToken);
         return json_encode(json_decode(base64_decode($payload)), JSON_PRETTY_PRINT);
     }
 
@@ -167,8 +164,7 @@ return function (App $app) {
      * access to an organization and must redirect the user to the uri provided
      * in the link.
      *
-     * @return A redirect uri if 'connections' rel is present or <code>null</code>
-     * if no redirect is required to finish the setup.
+     * @return string | null
      */
     function needsOrganizationAccess($settings)
     {
@@ -183,8 +179,9 @@ return function (App $app) {
             $links = $org['links'];
             foreach($links as $link) {
                 if($link['rel'] === 'connections'){
-                    $orgConnectedRedirect = http_build_query(array(
-                        'redirect_uri' => $settings['orgConnectionCompletedUrl']
+                    $orgConnectedRedirect = http_build_query(
+                        array(
+                            'redirect_uri' => $settings['orgConnectionCompletedUrl']
                         )
                     );
                     return $link['uri'] . '?' . $orgConnectedRedirect;
