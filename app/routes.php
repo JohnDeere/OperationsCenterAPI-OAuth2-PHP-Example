@@ -14,12 +14,11 @@ return function (App $app) {
     $app->get('/', function (Request $request, Response $response) {
         $container = new PhpRenderer('../templates/');
 
-        $oauth = new OAuth2Settings();
-        $settings = $oauth->getSettings();
-        $_SESSION['settings'] = $settings;
-        // $response->getBody()->write('To print on page');
-        $response = $container->render($response, 'main.phtml',  ["settings" => $settings]);
-        return $response;
+        if (!isset($_SESSION['settings'])) {
+            $_SESSION['settings'] = (new OAuth2Settings())->getSettings();
+        }
+
+        return $container->render($response, 'main.phtml', ["settings" => $_SESSION['settings']]);
     });
 
     //start_oidc
@@ -36,8 +35,9 @@ return function (App $app) {
             "state" => $settings['state']
         ];
         $redirect_url = $authorization_endpoint . "?" . http_build_query($params);
-        header("Location: " . $redirect_url);
-        exit();
+        return $response
+                ->withHeader('Location', $redirect_url)
+                ->withStatus(302);
     });
 
     //process_callback
@@ -55,8 +55,15 @@ return function (App $app) {
         $settings = callAuthenticationWith($settings, $payload);
 
         $_SESSION['settings'] = $settings;
-        $response = $container->render($response, 'main.phtml',  ["settings" => $settings]);
-        return $response;
+
+        $redirect_url = needsOrganizationAccess($settings);
+        if($redirect_url != null) {
+            return $response
+                ->withHeader('Location', $redirect_url)
+                ->withStatus(302);
+        }
+
+        return $container->render($response, 'main.phtml',  ["settings" => $settings]);
     });
 
     //refresh_access_token
@@ -72,8 +79,7 @@ return function (App $app) {
         $settings = callAuthenticationWith($settings, $payload);
 
         $_SESSION['settings'] = $settings;
-        $response = $container->render($response, 'main.phtml',  ["settings" => $settings]);
-        return $response;
+        return $container->render($response, 'main.phtml', ["settings" => $settings]);
     });
 
     //call-api
@@ -84,28 +90,29 @@ return function (App $app) {
         $parsedBody = $request->getParsedBody();
         $url = filter_var($parsedBody['url'], FILTER_SANITIZE_STRING);
         $token = filter_var($parsedBody['token'], FILTER_SANITIZE_STRING);
+
+        $body = apiGet($token, $url);
+        $body = json_encode(json_decode($body), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        $settings['accessToken'] = $token;
+        $settings['apiResponse'] = $body;
+        $_SESSION['settings'] = $settings;
+
+        return $container->render($response, 'main.phtml', ["settings" => $settings]);
+    });
+
+    function apiGet($token, $resourceUrl)
+    {
         $client = new Client();
-        $res = $client->request('GET', $url, ['verify' => false,
+        $res = $client->request('GET', $resourceUrl, ['verify' => false,
             'headers' => [
                 'authorization' => 'Bearer ' . $token,
                 'Accept' => 'application/vnd.deere.axiom.v3+json'
             ]
         ]);
-        $body = (string)$res->getBody();
-        $body = json_encode(json_decode($body), JSON_PRETTY_PRINT);
+        return (string)$res->getBody();
+    }
 
-        $settings['accessToken'] = $token;
-        $settings['apiResponse'] = $body;
-        $_SESSION['settings'] = $settings;
-        $response = $container->render($response, 'main.phtml',  ["settings" => $settings]);
-        return $response;
-    });
-
-    /**
-     * @param $settings
-     * @param array $payload
-     * @return mixed
-     */
     function callAuthenticationWith($settings, array $payload)
     {
         $token_endpoint = get_location_from_metadata($settings['wellKnown'], 'token_endpoint');
@@ -130,9 +137,10 @@ return function (App $app) {
         return $settings;
     }
 
-    function getAccessTokenDetails($jwt_access_token) {
+    function getAccessTokenDetails($jwtAccessToken)
+    {
         $separator = '.';
-        list($header, $payload, $signature) = explode($separator, $jwt_access_token);
+        list($header, $payload, $signature) = explode($separator, $jwtAccessToken);
         return json_encode(json_decode(base64_decode($payload)), JSON_PRETTY_PRINT);
     }
 
@@ -148,6 +156,41 @@ return function (App $app) {
         $body = (string)$res->getBody();
         $json = json_decode($body);
         return $json->$element;
+    }
+
+    /**
+     * Check to see if the 'connections' rel is present for any organization.
+     * If the rel is present it means the oauth application has not completed it's
+     * access to an organization and must redirect the user to the uri provided
+     * in the link.
+     *
+     * @return string | null
+     */
+    function needsOrganizationAccess($settings)
+    {
+        $token = $settings['accessToken'];
+        $orgsUrl = $settings['apiUrl'] . '/organizations';
+
+        $response = json_decode(apiGet($token, $orgsUrl), $assoc=true);
+
+        $orgs = $response['values'];
+
+        foreach ($orgs as $org) {
+            $links = $org['links'];
+            foreach($links as $link) {
+                if($link['rel'] === 'connections'){
+                    $orgConnectedRedirect = http_build_query(
+                        array(
+                            'redirect_uri' => $settings['orgConnectionCompletedUrl']
+                        )
+                    );
+                    return $link['uri'] . '?' . $orgConnectedRedirect;
+                }
+            }
+
+        }
+
+        return null;
     }
 
     /**
